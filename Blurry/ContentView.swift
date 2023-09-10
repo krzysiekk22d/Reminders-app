@@ -8,78 +8,95 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State var text: Array<String> = []
-    @State var showSheet = false
-    @State var textItemTemp = ""
+    @State private var textItems: [String] = []
+    @State private var isAddingItemSheetPresented = false
+    @State private var newItemText = ""
     var body: some View {
         NavigationView {
-            Group {
-                if text.count <= 1 {
-                    Text("No items")
-                } else {
-                    List {
-                        ForEach((1...text.count - 1), id: \.self) { i in
-                            Text(text[i])
-                                .contextMenu {
-                                    Button {
-                                        text.remove(at: i)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-
-                                }
+            if textItems.isEmpty {
+                Text("No items")
+                    .navigationTitle("Notes")
+                    .toolbar {
+                        Button {
+                            isAddingItemSheetPresented.toggle()
+                        } label: {
+                            Image(systemName: "plus")
                         }
+                    }
+            } else {
+                List {
+                    ForEach(textItems, id: \.self) { item in
+                        Text(item)
+                            .contextMenu {
+                                Button {
+                                    removeItem(item)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                    }
+                    .onDelete(perform: removeItems)
+                }
+                .navigationTitle("Notes")
+                .toolbar {
+                    Button {
+                        isAddingItemSheetPresented.toggle()
+                    } label: {
+                        Image(systemName: "plus")
                     }
                 }
             }
-            .navigationTitle("Notes")
-            .toolbar {
-                Button {
-                    showSheet.toggle()
-                    // clear the temp
-                    textItemTemp = ""
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
-            .onChange(of: text) { _ in
-                save()
-                load()
-            }
-            .onAppear {
-                save()
-                load()
-            }
-            .refreshable {
-                save()
-                load()
-            }
         }
-        .sheet(isPresented: $showSheet) {
+        .onChange(of: textItems, perform: { _ in
+            saveText()
+        })
+        .onAppear(perform: {
+            loadText()
+        })
+        .refreshable {
+            loadText()
+        }
+        .sheet(isPresented: $isAddingItemSheetPresented, content: {
             NavigationView {
                 List {
-                    TextField("item", text: $textItemTemp)
+                    TextField("Add an item", text: $newItemText)
+                        .textInputAutocapitalization(.sentences)
                 }
                 .navigationTitle("Add an item")
                 .toolbar {
-                    Button("add") {
-                        text.append(textItemTemp)
-                        showSheet.toggle()
+                    Button("OK") {
+                        addItem()
+                        isAddingItemSheetPresented.toggle()
                     }
                 }
             }
+        })
+    }
+    
+    private func addItem() {
+        textItems.append(newItemText)
+        newItemText = ""
+    }
+    
+    private func removeItem(_ item: String) {
+        if let index = textItems.firstIndex(of: item) {
+            textItems.remove(at: index)
         }
     }
-    func save() -> Void {
-        let temp = text.joined(separator: "/[split]/")
-        let key = UserDefaults.standard
-        key.set(temp, forKey: "text")
+    
+    private func removeItems(at offsets: IndexSet) {
+        textItems.remove(atOffsets: offsets)
     }
-    func load() -> Void {
-        let key = UserDefaults.standard
-        let temp = key.string(forKey: "text") ?? ""
-        let tempArray = temp.components(separatedBy: "/[split]/")
-        text = tempArray
+    
+    private func saveText() {
+        let textToSave = textItems.joined(separator: "/[split]/")
+        UserDefaults.standard.set(textToSave, forKey: "text")
+    }
+    
+    private func loadText() {
+        if let savedText = UserDefaults.standard.string(forKey: "text") {
+            textItems = savedText.components(separatedBy: "/[split]/")
+        }
     }
 }
 
